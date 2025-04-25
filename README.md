@@ -3,7 +3,7 @@ This study introduces a federated learning approach for training surgical founda
 
 # 🔬 Paper Submission Notice
 
-This repository accompanies our work submitted to Medical Image Analysis.
+This repository accompanies our work submitted to IEEE TMI.
 The code and related resources will be made publicly available at a later stage, pending the review process.
 
 Stay tuned for updates!
