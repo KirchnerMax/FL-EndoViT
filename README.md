@@ -2,9 +2,9 @@
 
 Official implementation of the paper: **FL-EndoViT: Pretraining Vision Transformers via Federated Learning on Endoscopic Image Collections** (Submitted to MIDL 2026)
 
-[Paper arXiv](https://arxiv.org/abs/2504.16612) | [Endo700k Dataset Collection](https://github.com/DominikBatic/EndoViT#download-endo700k) | [EndoViT Baseline](https://github.com/DominikBatic/EndoViT)
-
 ![Method, overview](/images/methods.png)
+
+[Paper arXiv](https://arxiv.org/abs/2504.16612) | [Endo700k Dataset Collection](https://github.com/DominikBatic/EndoViT#download-endo700k) | [EndoViT Baseline](https://github.com/DominikBatic/EndoViT)
 
 ## Abstract 
 
