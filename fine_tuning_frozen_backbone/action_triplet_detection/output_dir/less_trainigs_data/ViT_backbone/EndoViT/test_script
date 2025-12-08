@@ -1,0 +1,110 @@
+#!/bin/sh
+#SBATCH --job-name=finetuning_frozen_backbone_ActionTripletDetection_LessTrainingData_EndoViT
+#SBATCH --outputs=./finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/out.txt # Standard outputs of the script (Can be absolute or relative path). %A adds the job id to the file name so you can launch the same script multiple times and get different logging files
+#SBATCH --error=./finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/err.txt # Standard error of the script
+#SBATCH --time=0-48:00:00 # Limit on the total run time (format: days-hours:minutes:seconds)
+#SBATCH --gres=gpu:v100:1 # Number of GPUs if needed
+#SBATCH --cpus-per-task=12 # Number of CPUs (Don't use more than 24 per GPU)
+#SBATCH --mem=120G # Memory in GB (Don't use more than 126G per GPU)
+
+# activate corresponding environment
+#source ~/miniconda3/etc/profile.d/conda.sh
+#conda deactivate
+#conda activate endovit
+
+# run the program
+
+# hyperparameters
+SEED=1665
+REINIT=-1
+LLRD=0.65
+lr=0.001
+wd=0.05
+freeze=0
+
+# set outputs paths
+OUT_DIR="./finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT"
+
+# set input paths
+DATA_DIR="/mnt/cluster/datasets/CholecT45"
+VIT_PRETRAINED_CKPT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/00_original_code/EndoViT/pretraining/pretrained_endovit_models/EndoViT_for_ActionTripletDetection/endovit_ATD.pth"
+
+for VIDEOS_TO_USE in "27 5" "70 47" "51 50" "36 14 57 15" "23 66 31 27" "42 31 6 52" "18 57 51 60 27 68 36 48" "2 36 5 47 48 8 6 18" "47 57 8 80 15 68 40 27"
+do
+
+video_count=$(echo ${VIDEOS_TO_USE} | wc -w)
+video_str=$(echo ${VIDEOS_TO_USE} | tr " " "_")
+
+DIR=${OUT_DIR}/${video_count}_videos_only
+if [ ! -d ${DIR} ] ; then
+	mkdir -p ${DIR}
+fi
+
+if [ ${video_count} -eq 2 ]; then
+    EPOCHS=50
+elif [ ${video_count} -eq 4 ]; then
+    EPOCHS=30
+else
+    EPOCHS=20
+fi
+
+
+if [ "${VIDEOS_TO_USE}" = "27 5" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/2_videos_only/run_0001_00:34-08.11.24__2VidsOnly_EndoViT_Videos_27_5/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "70 47" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/2_videos_only/run_0002_01:37-08.11.24__2VidsOnly_EndoViT_Videos_70_47/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "51 50" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/2_videos_only/run_0003_02:38-08.11.24__2VidsOnly_EndoViT_Videos_51_50/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "36 14 57 15" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/4_videos_only/run_0001_03:41-08.11.24__4VidsOnly_EndoViT_Videos_36_14_57_15/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "23 66 31 27" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/4_videos_only/run_0002_04:36-08.11.24__4VidsOnly_EndoViT_Videos_23_66_31_27/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "42 31 6 52" ]; then
+    TEST_CHECKPOINT="//mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/4_videos_only/run_0003_05:31-08.11.24__4VidsOnly_EndoViT_Videos_42_31_6_52/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "18 57 51 60 27 68 36 48" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/8_videos_only/run_0001_06:31-08.11.24__8VidsOnly_EndoViT_Videos_18_57_51_60_27_68_36_48/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "2 36 5 47 48 8 6 18" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/8_videos_only/run_0002_07:25-08.11.24__8VidsOnly_EndoViT_Videos_2_36_5_47_48_8_6_18/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ "${VIDEOS_TO_USE}" = "47 57 8 80 15 68 40 27" ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/less_training_data/ViT_backbone/EndoViT/8_videos_only/run_0003_08:18-08.11.24__8VidsOnly_EndoViT_Videos_47_57_8_80_15_68_40_27/mae_cholect45-crossval_k5_best_acc.pth"
+fi
+
+
+# set run name (this will be the outputs dir inside DIR)
+RUN_NAME=${video_count}VidsOnly_EndoViT_Videos_${video_str}
+
+python ./finetuning/action_triplet_detection/model/Rendezvous/run_training_focal_loss.py \
+    -e \
+    --data_dir=${DATA_DIR} \
+    --dataset_variant=cholect45-crossval \
+    --kfold 5 \
+    --image_height 224 \
+    --image_width 224 \
+    --backbone mae \
+    --epochs ${EPOCHS} \
+    --batch 1 \
+    --initial_learning_rates ${lr} \
+    --warmups 0 \
+    --decay_rate 0.95 \
+    --version ${RUN_NAME} \
+    --mae_model "vit_base_patch16" \
+    --mae_ckpt ${VIT_PRETRAINED_CKPT} \
+    --nb_classes 100 \
+    --freeze_weights ${freeze} \
+    --mae_layer_decay ${LLRD} \
+    --reinit_n_layers ${REINIT} \
+    --return_mae_optimizer_groups \
+    --weight_decay ${wd} \
+    --output_dir ${DIR} \
+    --dataset_mean "[0.3464, 0.2280, 0.2228]" \
+    --dataset_std "[0.2520, 0.2128, 0.2093]" \
+    --use_wandb \
+    --wandb_project_name "EndoViT_Finetuning_ActionTripletDetection" \
+    --wandb_tags LessTrainingData ViT_Backbone EndoViT ${video_count}VidsOnly \
+    --seed ${SEED} \
+    --num_workers 12 \
+    --loss_weighting "no_weighting" \
+    --data_efficient_training ${VIDEOS_TO_USE} \
+    --test_ckpt ${TEST_CHECKPOINT}
+
+done

@@ -1,0 +1,118 @@
+import torch
+from torch import amp
+import sys
+from pathlib import Path
+import json
+
+from tqdm import tqdm
+
+from src.trainer import Trainer
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def generate_plot(centralized_predictions, fl_predictions):
+    num_classes = centralized_predictions.shape[1]
+    np.random.seed(42)
+    fig, axes = plt.subplots(num_classes, 1, figsize=(15, 5 * num_classes))
+    for class_idx in range(num_classes):
+        cen_class_preds = centralized_predictions[:, class_idx, :].flatten()
+        fl_class_preds = fl_predictions[:, class_idx, :].flatten()
+        corr = np.corrcoef(cen_class_preds, fl_class_preds)[0, 1]
+        ax = axes[class_idx]
+        ax.scatter(cen_class_preds, fl_class_preds, color='orange', label='Samples')
+        ax.plot([0, 1], [0, 1], 'r--', label='Diagonal')
+        ax.set_title(f"Class {class_idx} (Corr: {corr:.2f})")
+        ax.set_xlabel("CEN Backbone Predictions")
+        ax.set_ylabel("FL Backbone Predictions")
+        ax.legend()
+    plt.tight_layout()
+    plt.savefig("correlation_plots.png")
+    print("Correlation plots saved to correlation_plots.png", flush=True)
+    plt.close(fig)
+
+
+def load_and_evaluate(trainer, checkpoint, dataloader, config):
+    print(
+        f'##############################################\nLoad and Evaluate: {checkpoint}\n##############################################\nConfig: {config}\n##############################################')
+    config["General Hyperparams"]["resume_training"] = checkpoint
+    trainer.load_pretrained_checkpoint(config)
+    trainer._init_model(config, state_dict=trainer.checkpoint.get("model"))
+    trainer.optimizer = trainer._init_optimizer(config, trainer.model, state_dict=trainer.checkpoint.get("optimizer"))
+    trainer.scheduler = trainer._init_scheduler(config, trainer.optimizer,
+                                                state_dict=trainer.checkpoint.get("scheduler"))
+    trainer.scaler = trainer._init_scaler(config, state_dict=trainer.checkpoint.get(
+        "scaler")) if trainer.do_optimizations else None
+    trainer.model.half().to(trainer.device).eval()
+    logits_list, preds_list = [], []
+    with torch.no_grad():
+        for i, sample in tqdm(enumerate(dataloader)):
+            if i % 100 == 0:
+                print(f"Batch {i}", flush=True)
+                inputs, targets = sample["image"].to(trainer.device, non_blocking=True), sample["mask"][:, 0, :, :].to(
+                    trainer.device, non_blocking=True)
+                # print(inputs.shape, targets.shape, i)
+                with amp.autocast(device_type='cuda'):
+                    logits = trainer.model(inputs.half())
+                    # add softmax to get probabilities
+                    logits = torch.nn.functional.softmax(logits, dim=1)
+                preds = torch.argmax(logits, dim=1)
+                logits_list.append(logits.to("cpu").detach().numpy())
+                preds_list.append(preds.to("cpu").detach().numpy())
+                del inputs, targets, logits, preds
+                torch.cuda.empty_cache()
+    return logits_list, preds_list
+
+
+def get_config(conf_path):
+    conf_path = Path(conf_path)
+    assert conf_path.is_file(), f"Config file not found at {conf_path}, check if it is a valid json file."
+    with open(conf_path, "r") as read_file:
+        return json.load(read_file)
+
+
+if __name__ == "__main__":
+    centralised_config_path = "/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning/semantic_segmentation/output_dir/high_res/full_dataset/EndoViT/Run01_config_seed_1665.json"
+    centralised_config = get_config(centralised_config_path)
+
+    federated_config_path = "/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning/semantic_segmentation/output_dir/high_res/full_dataset/EndoViT_ASAM/Run01_config_seed_1665.json"
+    federated_config = get_config(federated_config_path)
+
+    centralised_config["General Hyperparams"]["batch_size"] = 1
+    centralised_config["Loggers"]["WandB"]["enable"] = False
+
+    federated_config["General Hyperparams"]["batch_size"] = 1
+    federated_config["Loggers"]["WandB"]["enable"] = False
+
+    centralised_checkpoint = "/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning/semantic_segmentation/output_dir/high_res/full_dataset/EndoViT/run_0004_12:23-31.10.24__HighRes_FullDataset_EndoViT_Run01_seed_1665/best_ckpt_mIoU_0.8035_Epoch_9.pth"
+    federated_checkpoint = "/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning/semantic_segmentation/output_dir/high_res/full_dataset/EndoViT_ASAM/run_0007_22:01-28.10.24__HighRes_FullDataset_EndoViT_ASAM_Run01_seed_1665/best_ckpt_mIoU_0.8055_Epoch_9.pth"
+
+    trainer = Trainer(centralised_config)
+    dataloader = trainer.test_dataloader
+
+    logits_cen, _ = load_and_evaluate(trainer, centralised_checkpoint, dataloader, centralised_config)
+    logits_fl, _ = load_and_evaluate(trainer, federated_checkpoint, dataloader, federated_config)
+
+    # print(len(logits_cen), len(logits_fl))
+    #
+    # logits_cen = torch.tensor(logits_cen)
+    # logits_cen = logits_cen.view(logits_cen.size(0), logits_cen.size(2), -1)
+    # logits_fl = torch.tensor(logits_fl)
+    # logits_fl = logits_fl.view(logits_fl.size(0), logits_fl.size(2), -1)
+    #
+    # generate_plot(logits_cen, logits_fl)
+
+    # Convert the list of numpy.ndarrays to a single numpy.ndarray
+    logits_cen = np.array(logits_cen)
+    logits_fl = np.array(logits_fl)
+
+    # Convert the numpy.ndarray to a PyTorch tensor
+    logits_cen = torch.tensor(logits_cen)
+    logits_fl = torch.tensor(logits_fl)
+
+    # Reshape the tensors to combine height and width dimensions, ignoring the batch dimension
+    logits_cen = logits_cen.view(logits_cen.size(0), logits_cen.size(2), -1)
+    logits_fl = logits_fl.view(logits_fl.size(0), logits_fl.size(2), -1)
+
+    generate_plot(logits_cen, logits_fl)
