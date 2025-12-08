@@ -1,0 +1,8 @@
+training_rounds: 15
+best_loss: 'inf'
+best_epoch: -1
+best_result:
+  loss: float('inf')
+  epoch: -1
+wandb_id: 5b710544-5d62-4339-9c1b-38ccba16e4e3
+group_name: '10090853'

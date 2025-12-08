@@ -1,0 +1,122 @@
+seed: 42
+log_dir: /mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/src/outputs/1A_Segmentation/
+use_wandb: True
+accum_iter: 300
+log_every_n_steps: 100
+validate_every_n_steps: 300
+swa_average_every_n_steps: 100
+distributed: False
+do_swa: False
+num_clients: 9
+gpu_partition: 1.0
+
+config_path: /mnt/cluster/workspaces/kirchnema/FL_EndoViT_rebuttal/pretraining/conf/
+
+optuna:
+  HPO_RATE: 1
+  HPO_FACTOR: 0.5
+
+fed_prox:
+  mu: 0.05
+
+dataloader:
+  client_names: [ 'DSAD', 'ESAD', 'GLENDA', 'HeiCo', 'hsdb_instrument', 'LapGyn4', 'PSI_AVA', 'SurgicalActions160', 'Cholec80']
+  data_path_train: /mnt/cluster/datasets/Endo700k/
+  data_path_val: /mnt/cluster/datasets/Endo700k_validation_dataset/
+  mean: '[0.3464, 0.2280, 0.2228]'
+  std: '[0.2520,0.2128,0.2093]'
+  input_size: 224
+  batch_size: 256
+  N: null
+
+model_specific:
+  model: mae_vit_base_patch16
+  resume: /mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/01_EndoViT_FL/EndoVit_FL/src/pretrain/MAE/ImageNet_pretrained_models/mae_pretrain_vit_base_full.pth
+  norm_pix_loss: False
+  loss: MSE
+  high_pass_filter_loss: False
+  layer_decay: 0.65
+  weight_decay: 0.05
+
+swa:
+  swa: True
+  swa_start: 10
+  swa_lr: 0.0001
+  swa_c: 1
+  swa_c_lr: 0.0001
+
+asam:
+  rho: 0.7
+  eta: 0.2
+
+training:
+  num_workers: 8
+  num_rounds: 15
+  mask_ratio: 0.75
+  lr: 0.0015
+  min_lr: 1e-06
+  warmup_epochs: 1
+
+DSAD_all:
+  train_datasets_to_take:
+    - DSAD
+    - ESAD
+    - GLENDA_v1.0
+    - HeiCo
+    - hSDB-instrument
+    - LapGyn4_v1.2
+    - PSI_AVA
+    - SurgicalActions160
+    - Cholec80_for_Segmentation
+  val_datasets_to_take: [ ]
+
+DSAD:
+  train_datasets_to_take:
+    - DSAD
+  val_datasets_to_take: []
+
+ESAD:
+  train_datasets_to_take:
+    - ESAD
+  val_datasets_to_take: []
+
+GLENDA:
+  train_datasets_to_take:
+    - GLENDA_v1.0
+  val_datasets_to_take: []
+
+HeiCo:
+  train_datasets_to_take:
+    - HeiCo
+  val_datasets_to_take: []
+
+hsdb_instrument:
+  train_datasets_to_take:
+    - hSDB-instrument
+  val_datasets_to_take: []
+
+LapGyn4:
+  train_datasets_to_take:
+    - LapGyn4_v1.2
+  val_datasets_to_take: []
+
+PSI_AVA:
+  train_datasets_to_take:
+    - PSI_AVA
+  val_datasets_to_take: []
+
+SurgicalActions160:
+  train_datasets_to_take:
+    - SurgicalActions160
+  val_datasets_to_take: []
+
+Cholec80:
+  train_datasets_to_take:
+    - Cholec80_for_Segmentation
+  val_datasets_to_take: []
+
+Server:
+  output_dir: ./pretraining/outputs/1A_Segmentation/Server
+
+Aggregator: "FedAvg"
+q: 0.5

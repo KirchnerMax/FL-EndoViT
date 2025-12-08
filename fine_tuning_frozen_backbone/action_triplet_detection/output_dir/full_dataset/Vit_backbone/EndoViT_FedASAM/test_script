@@ -1,0 +1,78 @@
+#!/bin/sh
+#SBATCH --job-name=finetuning_frozen_backbone_ActionTripletDetection_FullDataset_EndoViT_ASAM
+#SBATCH --outputs=./finetuning_frozen_backbone/action_triplet_detection/output_dir/full_dataset/ViT_backbone/EndoViT_FedASAM/out.txt # Standard outputs of the script (Can be absolute or relative path). %A adds the job id to the file name so you can launch the same script multiple times and get different logging files
+#SBATCH --error=./finetuning_frozen_backbone/action_triplet_detection/output_dir/full_dataset/ViT_backbone/EndoViT_FedASAM/err.txt # Standard error of the script
+#SBATCH --time=0-48:00:00 # Limit on the total run time (format: days-hours:minutes:seconds)
+#SBATCH --gres=gpu:1 # Number of GPUs if needed
+#SBATCH --cpus-per-task=12 # Number of CPUs (Don't use more than 24 per GPU)
+#SBATCH --mem=120G # Memory in GB (Don't use more than 126G per GPU)
+
+# run the program
+
+# hyperparameters
+EPOCHS=10
+REINIT=-1
+LLRD=0.65
+lr=0.001
+wd=0.05
+freeze=0
+
+# set outputs paths
+OUT_DIR="./finetuning_frozen_backbone/action_triplet_detection/output_dir/full_dataset/ViT_backbone/EndoViT_FedASAM"
+
+if [ ! -d ${OUT_DIR} ] ; then
+	mkdir -p ${OUT_DIR}
+fi
+
+# set input paths
+DATA_DIR="/mnt/cluster/datasets/CholecT45"
+VIT_PRETRAINED_CKPT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/src/outputs/experiment_1B/Server/best_swa_model_server.pth"
+
+for SEED in 1665 8914 37 
+do
+
+# set run name (this will be the outputs dir inside OUT_DIR)
+RUN_NAME=FullDataset_EndoViT_Seed_${SEED}
+
+if [ ${SEED} -eq 1665 ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/full_dataset/ViT_backbone/EndoViT_FedASAM/run_0001_18:07-07.11.24__FullDataset_EndoViT_Seed_1665/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ ${SEED} -eq 8914 ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/full_dataset/ViT_backbone/EndoViT_FedASAM/run_0002_19:37-07.11.24__FullDataset_EndoViT_Seed_8914/mae_cholect45-crossval_k5_best_acc.pth"
+elif [ ${SEED} -eq 37 ]; then
+    TEST_CHECKPOINT="/mnt/ceph/tco/TCO-Staff/Homes/kirchnema/04_pycharm/05_endovit_fl/03_EndoViT_FL_2/EndoViT_2/finetuning_frozen_backbone/action_triplet_detection/output_dir/full_dataset/ViT_backbone/EndoViT_FedASAM/run_0003_20:53-07.11.24__FullDataset_EndoViT_Seed_37/mae_cholect45-crossval_k5_best_acc.pth"
+fi
+
+python ./finetuning/action_triplet_detection/model/Rendezvous/run_training_focal_loss.py \
+    -e \
+    --data_dir=${DATA_DIR} \
+    --dataset_variant=cholect45-crossval \
+    --kfold 5 \
+    --image_height 224 \
+    --image_width 224 \
+    --backbone mae \
+    --epochs ${EPOCHS} \
+    --batch 1 \
+    --initial_learning_rates ${lr} \
+    --warmups 0 \
+    --decay_rate 0.95 \
+    --version ${RUN_NAME} \
+    --mae_model "vit_base_patch16" \
+    --mae_ckpt ${VIT_PRETRAINED_CKPT} \
+    --nb_classes 100 \
+    --freeze_weights ${freeze} \
+    --mae_layer_decay ${LLRD} \
+    --reinit_n_layers ${REINIT} \
+    --return_mae_optimizer_groups \
+    --weight_decay ${wd} \
+    --output_dir ${OUT_DIR} \
+    --dataset_mean "[0.3464, 0.2280, 0.2228]" \
+    --dataset_std "[0.2520, 0.2128, 0.2093]" \
+    --use_wandb \
+    --wandb_project_name "EndoViT_Finetuning_frozen_backbone_ActionTripletDetection" \
+    --wandb_tags FullDataset ViT_Backbone EndoViT \
+    --seed ${SEED} \
+    --num_workers 12 \
+    --loss_weighting "no_weighting" \
+    --test_ckpt ${TEST_CHECKPOINT}
+
+done
