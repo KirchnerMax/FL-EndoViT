@@ -25,15 +25,42 @@ The framework consists of two distinct phases:
 
 ## Installation 
 
+1. Clone the repository and enter the project root.
+   ```sh
+   git clone <repo-url>
+   cd FL-EndoViT
+   ```
+
+2. Create and activate the conda environment from the provided spec:
+   ```sh
+   conda env create -f environment.yaml -n fl-endovit
+   conda activate fl-endovit
+   ```
+   See [environment.yaml](environment.yaml) for pinned package versions and CUDA/PyTorch settings. If you don't use conda, install the listed packages manually.
+
 ## Data Preparation 
+
+1. Download the EndoViT700k dataset collection:
+   - For large-scale pretraining, use the Endo700k collection as described in the [EndoViT baseline](https://github.com/DominikBatic/EndoViT#download-endo700k).
+2. Download the GynSurg dataset collection: [GynSurg](https://ftp.itec.aau.at/datasets/GynSurge/)
+3. Update the dataset path in the scripts
 
 ## Usage
 
-## Results 
+### Pretraining
 
-## Citation 
+Run one of the bash scripts to execute pretraining.
+
+### Fine-Tuning
+
+Go into one of the fine-tuning experiment folders in the output_dir and execute the executable scripts.
+
+Notes and tips
+- Edit YAML configs or scripts to change model, optimizer, federated settings, or dataset paths.
 
 ## Acknowledgements
+
+This work was co-funded by the European Union through NEARDATA under grant agreement ID 101092644, the German Research Foundation (DFG, Deutsche Forschungsgemeinschaft) as part of Germany’s Excellence Strategy – EXC 2050/1 – Project ID 390696704 – Cluster of Excellence “Centre for Tactile Internet with Human-in-the-Loop” (CeTI) of Technische Universität Dresden, and the Federal Ministry of Education and Research of Germany in the programme of “Souverän. Digital. Vernetzt.”, a joint project 6G-life with the project identification number 16KISK001K.
 
 ## Contact
 
